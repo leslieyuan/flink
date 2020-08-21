@@ -691,6 +691,20 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	}
 
 	@Override
+	public TableResult executeSql(String statement, String jobName) {
+		List<Operation> operations = parser.parse(statement);
+
+		if (operations.size() != 1) {
+			throw new TableException(UNSUPPORTED_QUERY_IN_EXECUTE_SQL_MSG);
+		}
+		if (StringUtils.isBlank(jobName)) {
+			throw new TableException("Job Name cannot be empty");
+		}
+
+		return executeOperation(operations.get(0), jobName);
+	}
+
+	@Override
 	public StatementSet createStatementSet() {
 		return new StatementSetImpl(this);
 	}
@@ -717,6 +731,32 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 					.tableSchema(builder.build())
 					.data(Collections.singletonList(Row.of(affectedRowCounts)))
 					.build();
+		} catch (Exception e) {
+			throw new TableException("Failed to execute sql", e);
+		}
+	}
+
+	@Override
+	public TableResult executeInternal(List<ModifyOperation> operations, String jobName) {
+		List<Transformation<?>> transformations = translate(operations);
+		List<String> sinkIdentifierNames = extractSinkIdentifierNames(operations);
+		Pipeline pipeline = execEnv.createPipeline(transformations, tableConfig, jobName);
+		try {
+			JobClient jobClient = execEnv.executeAsync(pipeline);
+			TableSchema.Builder builder = TableSchema.builder();
+			Object[] affectedRowCounts = new Long[operations.size()];
+			for (int i = 0; i < operations.size(); ++i) {
+				// use sink identifier name as field name
+				builder.field(sinkIdentifierNames.get(i), DataTypes.BIGINT());
+				affectedRowCounts[i] = -1L;
+			}
+
+			return TableResultImpl.builder()
+				.jobClient(jobClient)
+				.resultKind(ResultKind.SUCCESS_WITH_CONTENT)
+				.tableSchema(builder.build())
+				.data(Collections.singletonList(Row.of(affectedRowCounts)))
+				.build();
 		} catch (Exception e) {
 			throw new TableException("Failed to execute sql", e);
 		}
@@ -780,6 +820,13 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 		} else {
 			throw new TableException(UNSUPPORTED_QUERY_IN_SQL_UPDATE_MSG);
 		}
+	}
+
+	private TableResult executeOperation(Operation operation, String jobName) {
+		if (operation instanceof ModifyOperation) {
+			return executeInternal(Collections.singletonList((ModifyOperation) operation), jobName);
+		}
+		return executeOperation(operation);
 	}
 
 	private TableResult executeOperation(Operation operation) {

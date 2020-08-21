@@ -917,6 +917,19 @@ public interface TableEnvironment {
 	TableResult executeSql(String statement);
 
 	/**
+	 * Execute the given single statement, and return the execution result.
+	 *
+	 * @param statement The statement can be DDL/DML/DQL/SHOW/DESCRIBE/EXPLAIN/USE.
+	 * For DML and DQL, this method returns TableResult once the job has been submitted.
+	 * For DDL and DCL statements, TableResult is returned once the operation has finished.
+	 * @param jobName The job name that user define, only DML take effect
+	 * @return content for DQL/SHOW/DESCRIBE/EXPLAIN,
+	 *         the affected row count for `DML` (-1 means unknown),
+	 *         or a string message ("OK") for other statements.
+	 */
+	TableResult executeSql(String statement, String jobName);
+
+	/**
 	 * Evaluates a SQL statement such as INSERT, UPDATE or DELETE; or a DDL statement;
 	 * NOTE: Currently only SQL INSERT statements and CREATE TABLE statements are supported.
 	 *

@@ -63,6 +63,15 @@ public interface TableEnvironmentInternal extends TableEnvironment {
 	TableResult executeInternal(List<ModifyOperation> operations);
 
 	/**
+	 * Execute the given modify operations and return the execution result.
+	 *
+	 * @param operations The operations to be executed.
+	 * @param jobName The job name user define.
+	 * @return the affected row counts (-1 means unknown).
+	 */
+	TableResult executeInternal(List<ModifyOperation> operations, String jobName);
+
+	/**
 	 * Execute the given query operation and return the execution result.
 	 *
 	 * @param operation The QueryOperation to be executed.
